@@ -1,0 +1,16 @@
+name        "gvsubsrv"
+description "Forum subscriptions' server for Erinome Godville UI+."
+authors     "Cordarion the Grey"
+copyright   "Copyright © 2018, Cordarion the Grey"
+license     "MIT"
+
+dependency "automem" version="~>0.3.2"
+dependency "sumtype" version="~>0.4.1"
+dependency "vibe-d" version="==0.8.4"
+
+versions "VibeCustomMain"
+
+buildType "debug" {
+    buildOptions "debugMode" "debugInfo"
+    versions /*"VibeDebugCatchAll"*/ "VibeJsonFieldNames" "JsonLineNumbers"
+}

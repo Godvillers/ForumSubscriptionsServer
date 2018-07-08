@@ -1,0 +1,7 @@
+/.dub/
+/static/version.txt
+/dub.selections.json
+/gvsubsrv
+/*.exe
+/*.a
+/*.lib
