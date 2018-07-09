@@ -37,7 +37,7 @@ struct Confirm {
 }
 
 struct Confirmation {
-    string result, msg;
+    string status;
 }
 
 struct Error {

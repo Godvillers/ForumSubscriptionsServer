@@ -42,6 +42,12 @@ public struct OrderedAA(K, V) {
     private _Node!(K, V)[K] _aa;
     private _Node!(K, V)* _last;
 
+    this(this) {
+        _aa = _aa.dup;
+        if (_last !is null)
+            _last = _last.key in _aa;
+    }
+
     @property bool empty() const nothrow pure @safe @nogc {
         return _last is null;
     }
@@ -56,8 +62,11 @@ public struct OrderedAA(K, V) {
     }
 
     ref V insert(K key, V value) {
+        import std.algorithm.mutation;
+
         assert(key !in _aa);
-        auto node = &(_aa[key] = _Node!(K, V)(key, value));
+        auto newNode = _Node!(K, V)(key, move(value)); // Here to propagate `@system`ness.
+        auto node = (() @trusted => &(_aa[key] = move(newNode)))();
         if (_last !is null)
             _insertBefore(node, _last);
         _last = node;

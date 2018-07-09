@@ -9,7 +9,8 @@ public import communication.protocols.iface;
 nothrow @safe @nogc:
 
 private alias _Parsers = AliasSeq!(v0.Parser, v1.Parser);
-alias LatestParser = _Parsers[$ - 1];
+alias DefaultParser = _Parsers[0];
+alias LatestParser  = _Parsers[$ - 1];
 
 private immutable IProtocolParser[_Parsers.length] _parsers;
 

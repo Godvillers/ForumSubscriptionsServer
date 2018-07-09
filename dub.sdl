@@ -8,7 +8,7 @@ dependency "automem" version="~>0.3.2"
 dependency "sumtype" version="~>0.4.1"
 dependency "vibe-d" version="==0.8.4"
 
-versions "VibeCustomMain"
+versions "VibeCustomMain" "VibeIdleCollect" "VibeManualMemoryManagement"
 
 buildType "debug" {
     buildOptions "debugMode" "debugInfo"
