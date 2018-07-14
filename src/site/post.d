@@ -31,9 +31,7 @@ void handlePost(scope HTTPServerRequest req, scope HTTPServerResponse res) @safe
     try
         request = deserializeJson!(Json[ ])(data);
     catch (Exception) {
-        const response = [cmds.Command(cmds.Error(
-            "corrupted", null, "Corrupted JSON document (must be an array at the top level)",
-        ))].s;
+        const response = [cmds.Command(cmds.Corrupted.init)].s;
         clientHandler.serializeResponse(app, response[ ]);
         goto sendResponse;
     }

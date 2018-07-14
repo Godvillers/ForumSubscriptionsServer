@@ -17,9 +17,13 @@ package mixin template _setUp(Parser: IProtocolParser) {
     }
 
     void expect(T)(string json, T expected) @safe {
-        import communication.commands;
+        import sumtype;
+        import utils;
 
-        assert(parse(json) == Command(expected));
+        parse(json).match!(
+            (T found) => assert(found == expected, json),
+            found     => unreachable(typeof(found).stringof),
+        );
     }
 
     void expectError(string json, string errorKind) @safe {
@@ -28,6 +32,9 @@ package mixin template _setUp(Parser: IProtocolParser) {
         import communication.commands;
         import utils;
 
-        parse(json).match!((Error e) => assert(e.kind == errorKind), _ => unreachable);
+        parse(json).match!(
+            (Error e) => assert(e.kind == errorKind, e.kind),
+            x         => unreachable(typeof(x).stringof),
+        );
     }
 }

@@ -31,14 +31,20 @@ struct _Confirmation {
     string status;
 }
 
+struct _Error {
+    string kind, details, msg;
+}
+
 alias _OutgoingImpl(_: cmds.Topics)       = _Topics;
 alias _OutgoingImpl(_: cmds.ServerConfig) = _ServerConfig;
 alias _OutgoingImpl(_: cmds.Confirmation) = _Confirmation;
+alias _OutgoingImpl(_: cmds.Error)        = _Error;
 alias _Outgoing(T) = CopyTypeQualifiers!(T, _OutgoingImpl!(Unqual!T));
 
 enum _keyword(_: _Topics)       = "topics";
 enum _keyword(_: _ServerConfig) = "config";
 enum _keyword(_: _Confirmation) = "confirmation";
+enum _keyword(_: _Error)        = "error";
 
 public class Parser: v0.Parser {
     enum version_ = 1;

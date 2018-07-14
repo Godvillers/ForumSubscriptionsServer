@@ -153,7 +153,8 @@ struct ClientHandler {
             (() @trusted => cast(ClientHandler*)addr)().wake(topics);
     }
 
-    void handle(const cmds.Error e) nothrow pure {
+    void handle(T)(const T e) nothrow pure
+    if (is(T == cmds.Corrupted) || is(T == cmds.UnknownCmd) || is(T == cmds.Error)) {
         _emit(e);
     }
 

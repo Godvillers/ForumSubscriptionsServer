@@ -24,9 +24,7 @@ void _runReader(scope WebSocket socket, ref ClientHandler clientHandler) {
         try
             request = deserializeJson!(Json[ ])(text);
         catch (Exception) {
-            const response = [cmds.Command(cmds.Error(
-                "corrupted", null, "Corrupted JSON document (must be an array at the top level)",
-            ))].s;
+            const response = [cmds.Command(cmds.Corrupted.init)].s;
             clientHandler.serializeResponse(app, response[ ]);
             goto sendResponse;
         }

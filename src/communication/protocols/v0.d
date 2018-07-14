@@ -1,7 +1,6 @@
 module communication.protocols.v0;
 
 import std.array;
-import std.traits;
 import vibe.data.json;
 
 import communication.protocols.iface;
@@ -10,20 +9,14 @@ import cmds = communication.commands;
 
 private @safe:
 
-struct _Protocol {
-    int version_;
-}
+// `v0` shall not ever change, so we don't declare our own structures.
+alias _Outgoing(T: cmds.Protocol)   = T;
+alias _Outgoing(T: cmds.Corrupted)  = T;
+alias _Outgoing(T: cmds.UnknownCmd) = T;
 
-struct _Error {
-    string kind, details, msg;
-}
-
-alias _OutgoingImpl(_: cmds.Protocol) = _Protocol;
-alias _OutgoingImpl(_: cmds.Error)    = _Error;
-alias _Outgoing(T) = CopyTypeQualifiers!(T, _OutgoingImpl!(Unqual!T));
-
-enum _keyword(_: _Protocol) = "protocol";
-enum _keyword(_: _Error)    = "error";
+enum _keyword(_: cmds.Protocol)   = "protocol";
+enum _keyword(_: cmds.Corrupted)  = "corrupted";
+enum _keyword(_: cmds.UnknownCmd) = "unknown";
 
 public class Parser: IProtocolParser {
     enum version_ = 0;
@@ -32,23 +25,22 @@ public class Parser: IProtocolParser {
 
     override cmds.Command parse(string cmd, const Json args) const {
         if (cmd == "protocol")
-            return _deserialize!(cmds.Protocol, _Protocol)(args);
-        return cmds.Command(cmds.Error("invalidCommand", cmd, "Unknown command"));
+            return cmds.Command(deserializeJson!(cmds.Protocol)(args));
+        return cmds.Command(cmds.UnknownCmd(cmd));
     }
 
     override void stringify(ref Appender!(char[ ]) sink, const cmds.Command cmd) const {
-        import sumtype;
-        import utils;
+        import std.traits;
 
         import sumtype;
+        import vibe.core.log;
 
         cmd.match!(
             (x) {
                 alias Schema = _Outgoing!(typeof(x));
                 sink._serialize!(Schema, _keyword!(Unqual!Schema))(x);
             },
-            // Outgoing messages, unsupported by the currently used protocol, are simply ignored.
-            _ => nothing,
+            x => logWarn("Ignoring an outgoing %s", x),
         );
     }
 }
@@ -58,7 +50,7 @@ public class Parser: IProtocolParser {
 
     mixin _setUp!Parser;
     () @safe {
-        expectError(q{{"cmd": "nop"}}, "invalidCommand");
+        expect(q{{"cmd": "nop"}}, cmds.UnknownCmd("nop"));
         expectError(q{{"cmd": "protocol"}}, "invalidStructure");
         expectError(q{{"cmd": "protocol", "args": null}}, "invalidStructure");
         expectError(q{{"cmd": "protocol", "args": { }}}, "invalidStructure");
