@@ -3,6 +3,7 @@ module site.post;
 import vibe.http.server;
 
 void handlePost(scope HTTPServerRequest req, scope HTTPServerResponse res) @safe {
+    import std.array;
     import std.exception;
     import std.range;
 

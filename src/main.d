@@ -22,7 +22,7 @@ void _configure() {
 
     listenHTTP(settings,
         new URLRouter()
-        .get("/", &handleIndex)
+        .get("/", serveStaticFile("static/index.html"))
         .get("/ws", &handleWS)
         .post("/post", &handlePost)
         .match(HTTPMethod.OPTIONS, "/ws",   &handleCORSOptions!"GET")
@@ -63,8 +63,7 @@ public int main() @system {
         lowerPrivileges();
         return runEventLoop();
     } catch (Throwable th) {
-        logFatal("%s", th.msg);
-        logDiagnostic("%s", th.toString().sanitize());
+        logFatal("%s", th.toString().sanitize());
         return 1;
     }
 }
