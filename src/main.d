@@ -24,9 +24,9 @@ void _configure() {
         new URLRouter()
         .get("/", &handleIndex)
         .get("/ws", &handleWS)
-        // TODO: POST /xhr
-        .match(HTTPMethod.OPTIONS, "/ws", &handleCORSOptions!"GET")
-        // .match(HTTPMethod.OPTIONS, "/xhr", &handleCORSOptions!"POST")
+        .post("/post", &handlePost)
+        .match(HTTPMethod.OPTIONS, "/ws",   &handleCORSOptions!"GET")
+        .match(HTTPMethod.OPTIONS, "/post", &handleCORSOptions!"POST")
         .get("/version", serveStaticFile("static/version.txt"))
     );
 }

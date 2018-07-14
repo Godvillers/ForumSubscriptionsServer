@@ -82,10 +82,8 @@ void _handleClient(string domain, scope WebSocket socket) {
     import logic.domain_handler;
     import global = logic.global_handler;
 
-    auto domainHandler = domain in global.domains;
-    if (domainHandler is null)
-        domainHandler = (() @trusted => &(global.domains[domain] = DomainHandler.init))();
-    auto clientHandler = ClientHandler(domainHandler); // This object must not be moved.
+    // This object must not be moved.
+    auto clientHandler = ClientHandler(global.registerDomain(domain));
 
     auto writer = runTask({
         try
