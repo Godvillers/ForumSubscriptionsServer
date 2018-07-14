@@ -4,6 +4,7 @@ import std.typecons: Nullable;
 import sumtype;
 import communication.serializable;
 
+// TODO: Split into `IncomingCommand` and `OutgoingCommand`.
 alias Command = SumType!(
     Protocol, ClientConfig, ServerConfig, Topics, Confirm, Confirmation, Error,
 );

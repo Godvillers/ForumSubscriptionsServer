@@ -1,20 +1,118 @@
 module site.ws;
 
+import std.array;
+
 import vibe.http.server;
+import vibe.http.websockets;
 
-@safe:
+import logic.client_handler;
+import utils;
+import cmds = communication.commands;
 
-void handleWS(scope HTTPServerRequest req, scope HTTPServerResponse res) {
+private @safe:
+
+// Client -> Server [-> Client].
+void _runReader(scope WebSocket socket, ref ClientHandler clientHandler) {
+    import vibe.data.json;
+
+    auto app = appender!(char[ ]);
+    app.reserve(1024);
+    Json[ ] request;
+    bool abort;
+    while (socket.waitForData()) {
+        const text = socket.receiveText();
+        try
+            request = deserializeJson!(Json[ ])(text);
+        catch (Exception) {
+            const response = [cmds.Command(cmds.Error(
+                "corrupted", null, "Corrupted JSON document (must be an array at the top level)",
+            ))].s;
+            clientHandler.serializeResponse(app, response[ ]);
+            goto sendResponse;
+        }
+
+        try
+            clientHandler.handle(request);
+        catch (CommunicationException)
+            abort = true;
+
+        if (clientHandler.serializeResponse(app)) {
+            if (app.data.length > 2) { // Unless it is `[]`.
+            sendResponse:
+                socket.send(app.data);
+            }
+            app.clear();
+        }
+        if (abort) {
+            socket.close(WebSocketCloseReason.protocolError);
+            break;
+        }
+    }
+}
+
+// Server -> Client.
+void _runWriter(scope WebSocket socket, ref ClientHandler clientHandler) {
+    import std.algorithm.iteration;
+
+    auto app = appender!(char[ ]);
+    app.reserve(1024);
+    while (true) {
+        clientHandler.sleep();
+        if (!socket.connected)
+            break;
+
+        const cmds.Topics topics = { clientHandler.queuedTopics.join() };
+        clientHandler.clearQueuedTopics(); // Clear immediately.
+        const response = [cmds.Command((() @trusted => cast()topics)())].s;
+        clientHandler.serializeResponse(app, response[ ]);
+        socket.send(app.data);
+        app.clear();
+    }
+}
+
+void _disconnect(scope WebSocket socket, string fmt, Exception e) nothrow {
+    logStackTrace(fmt, e);
+    try
+        socket.close(WebSocketCloseReason.internalError);
+    catch (Exception) { }
+}
+
+void _handleClient(string domain, scope WebSocket socket) {
+    import vibe.core.core;
+    import logic.domain_handler;
+    import global = logic.global_handler;
+
+    auto domainHandler = domain in global.domains;
+    if (domainHandler is null)
+        domainHandler = (() @trusted => &(global.domains[domain] = DomainHandler.init))();
+    auto clientHandler = ClientHandler(domainHandler); // This object must not be moved.
+
+    auto writer = runTask({
+        try
+            _runWriter(socket, clientHandler);
+        catch (InterruptException) { }
+        catch (Exception e)
+            _disconnect(socket, "Unexpected exception during WebSocket handling (writer): %s", e);
+    });
+    scope(failure) writer.interrupt();
+
+    _runReader(socket, clientHandler);
+    clientHandler.wake(null);
+    writer.join();
+}
+
+public void handleWS(scope HTTPServerRequest req, scope HTTPServerResponse res) {
     import std.range;
-    import vibe.core.log;
-    import vibe.http.websockets;
 
     const domain = req.query.get("domain");
     if (domain.empty)
         throw new HTTPStatusException(HTTPStatus.badRequest, "Missing `domain` GET parameter.");
 
     res.headers["Access-Control-Allow-Origin"] = "*";
-    handleWebSocket((scope socket) nothrow {
-        // TODO.
+    handleWebSocket((scope socket) nothrow @safe {
+        try
+            _handleClient(domain, socket);
+        catch (Exception e)
+            _disconnect(socket, "Unexpected exception during WebSocket handling: %s", e);
     }, req, res);
 }

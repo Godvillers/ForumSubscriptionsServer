@@ -28,3 +28,10 @@ auto make(T, Allocator, Args...)(auto ref Allocator alloc, auto ref Args args) {
         onOutOfMemoryError();
     return result;
 }
+
+void logStackTrace(string fmt, Exception e) nothrow @trusted {
+    import std.encoding;
+    import vibe.core.log;
+
+    logError(fmt, e.toString().sanitize());
+}

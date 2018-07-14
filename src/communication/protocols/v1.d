@@ -1,5 +1,7 @@
 module communication.protocols.v1;
 
+import std.array;
+import std.traits;
 import std.typecons: Nullable;
 
 import vibe.data.json;
@@ -10,21 +12,40 @@ import communication.serializable;
 import cmds = communication.commands;
 import v0 = communication.protocols.v0;
 
-private struct _ClientConfig {
+private @safe:
+
+struct _ClientConfig {
     @optional Nullable!(int[ ]) subs;
     @optional Ternary shareSubs;
 }
 
-private struct _Topics {
+struct _Topics {
     cmds.Topic[ ] data;
 }
 
-class Parser: v0.Parser {
+struct _ServerConfig {
+    int[ ] extraSubs;
+}
+
+struct _Confirmation {
+    string status;
+}
+
+alias _OutgoingImpl(_: cmds.Topics)       = _Topics;
+alias _OutgoingImpl(_: cmds.ServerConfig) = _ServerConfig;
+alias _OutgoingImpl(_: cmds.Confirmation) = _Confirmation;
+alias _Outgoing(T) = CopyTypeQualifiers!(T, _OutgoingImpl!(Unqual!T));
+
+enum _keyword(_: _Topics)       = "topics";
+enum _keyword(_: _ServerConfig) = "config";
+enum _keyword(_: _Confirmation) = "confirmation";
+
+public class Parser: v0.Parser {
     enum version_ = 1;
 
     alias parse = typeof(super).parse;
 
-    override cmds.Command parse(string cmd, const Json args) const @safe {
+    override cmds.Command parse(string cmd, const Json args) const {
         switch (cmd) {
         case "config":
             return _deserialize!(cmds.ClientConfig, _ClientConfig)(args);
@@ -34,13 +55,24 @@ class Parser: v0.Parser {
 
         case "confirm": {
             auto boxed = new cmds.Command;
-            *boxed = parse(args["wrapped"]);
+            *boxed = parse(args["wrapped"]); // Returns `Json.undefined` if not found.
             return cmds.Command(cmds.Confirm(boxed));
         }
 
         default:
             return super.parse(cmd, args);
         }
+    }
+
+    override void stringify(ref Appender!(char[ ]) sink, const cmds.Command cmd) const {
+        import sumtype;
+
+        cmd.match!((x) {
+            static if (is(_Outgoing!(typeof(x)) Schema))
+                sink._serialize!(Schema, _keyword!(Unqual!Schema))(x);
+            else
+                super.stringify(sink, cmd);
+        });
     }
 }
 
@@ -87,5 +119,32 @@ class Parser: v0.Parser {
             ),
             _ => unreachable,
         );
+    }();
+}
+
+@system unittest {
+    import communication.protocols.test;
+
+    mixin _setUp!Parser;
+    () @safe {
+        import std.algorithm.comparison;
+        import sumtype;
+        import utils;
+
+        auto app = appender!(char[ ]);
+
+        parser.stringify(app, cmds.Command(cmds.Protocol(1))); // Forwarded to `v0`.
+        assert(app.data.among(
+            q{{"cmd":"protocol","args":{"version":1}}},
+            q{{"args":{"version":1},"cmd":"protocol"}},
+        ), app.data);
+
+        auto topics = [7, 3432].s;
+        app.clear();
+        parser.stringify(app, cmds.Command(cmds.ServerConfig(topics[ ])));
+        assert(app.data.among(
+            q{{"cmd":"config","args":{"extraSubs":[7,3432]}}},
+            q{{"args":{"extraSubs":[7,3432]},"cmd":"config"}},
+        ), app.data);
     }();
 }

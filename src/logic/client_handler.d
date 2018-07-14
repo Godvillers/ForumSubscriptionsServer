@@ -42,10 +42,6 @@ struct ClientHandler {
             _unsubscribe();
     }
 
-    @property inout(cmds.Command)[ ] response() inout nothrow pure @nogc {
-        return _outBuffer.data;
-    }
-
     void sleep() {
         _event.wait();
     }
@@ -91,9 +87,11 @@ struct ClientHandler {
     }
 
     void handle(const cmds.Protocol protocol) pure {
+        auto oldParser = _parser;
         _parser = rebindable(get(protocol.version_));
         if (_parser is null) {
             // An unsupported version is requested.
+            _parser = oldParser;
             _emit(cmds.Protocol(LatestParser.version_));
             throw new CommunicationException;
         }
@@ -104,6 +102,7 @@ struct ClientHandler {
         import std.algorithm;
 
         if (!config.subs.isNull) {
+            // TODO: Respond with these subscriptions.
             _unsubscribe();
             _subs = config.subs.get[0 .. min($, 512)].dup;
             _subs.length -= _subs.sort().uniq().copy(_subs).length;
@@ -181,5 +180,16 @@ struct ClientHandler {
         _outBuffer.clear();
         foreach (json; commands)
             handle(_parser.parse(json));
+    }
+
+    bool serializeResponse(ref Appender!(char[ ]) sink, const(cmds.Command)[ ] response) {
+        if (response.empty)
+            return false;
+        _parser.stringify(sink, response);
+        return true;
+    }
+
+    bool serializeResponse(ref Appender!(char[ ]) sink) {
+        return serializeResponse(sink, _outBuffer.data);
     }
 }
