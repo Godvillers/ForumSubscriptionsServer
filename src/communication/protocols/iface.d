@@ -11,8 +11,7 @@ private struct _Command {
     @optional Json[string] args;
 }
 
-// TODO: Not just a parser any more, rename it.
-interface IProtocolParser {
+interface IProtocolCodec {
 const /+pure+/ @safe:
     cmds.Command parse(string cmd, const Json args)
     in {

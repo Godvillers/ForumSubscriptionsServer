@@ -6,7 +6,7 @@ import std.typecons: Rebindable, rebindable, Ternary;
 import vibe.core.sync;
 import vibe.data.json;
 
-import communication.protocols: IProtocolParser, DefaultParser, LatestParser, get;
+import communication.protocols: IProtocolCodec, DefaultCodec, LatestCodec, get;
 import logic.domain_handler;
 import cmds = communication.commands;
 
@@ -19,7 +19,7 @@ class CommunicationException: Exception {
 struct ClientHandler {
     private {
         DomainHandler* _domainHandler;
-        Rebindable!(immutable IProtocolParser) _parser;
+        Rebindable!(immutable IProtocolCodec) _codec;
         Appender!(cmds.Command[ ]) _outBuffer;
         Appender!(const(cmds.Topic)[ ][ ]) _queuedTopics;
         LocalManualEvent _event;
@@ -29,7 +29,7 @@ struct ClientHandler {
 
     this(DomainHandler* domainHandler) {
         _domainHandler = domainHandler;
-        _parser = rebindable(get!DefaultParser);
+        _codec = rebindable(get!DefaultCodec);
         _outBuffer = appender!(cmds.Command[ ]);
         _queuedTopics = appender!(const(cmds.Topic)[ ][ ]);
         _event = createManualEvent();
@@ -87,12 +87,13 @@ struct ClientHandler {
     }
 
     void handle(const cmds.Protocol protocol) pure {
-        auto oldParser = _parser;
-        _parser = rebindable(get(protocol.version_));
-        if (_parser is null) {
+        auto oldCodec = _codec;
+        // BUG: An entire bulk of responses is encoded with the most recently set codec.
+        _codec = rebindable(get(protocol.version_));
+        if (_codec is null) {
             // An unsupported version is requested.
-            _parser = oldParser;
-            _emit(cmds.Protocol(LatestParser.version_));
+            _codec = oldCodec;
+            _emit(cmds.Protocol(LatestCodec.version_));
             throw new CommunicationException;
         }
         _emit(cmds.Protocol(protocol.version_));
@@ -114,7 +115,7 @@ struct ClientHandler {
 
     void handle(const cmds.Confirm confirm)
     in {
-        assert(_parser !is null);
+        assert(_codec !is null);
     }
     do {
         handle(*confirm.wrapped);
@@ -160,7 +161,7 @@ struct ClientHandler {
 
     void handle(const cmds.Command cmd)
     in {
-        assert(_parser !is null);
+        assert(_codec !is null);
     }
     do {
         import sumtype;
@@ -175,18 +176,18 @@ struct ClientHandler {
 
     void handle(const(Json)[ ] commands)
     in {
-        assert(_parser !is null);
+        assert(_codec !is null);
     }
     do {
         _outBuffer.clear();
         foreach (json; commands)
-            handle(_parser.parse(json));
+            handle(_codec.parse(json));
     }
 
     bool serializeResponse(ref Appender!(char[ ]) sink, const(cmds.Command)[ ] response) {
         if (response.empty)
             return false;
-        _parser.stringify(sink, response);
+        _codec.stringify(sink, response);
         return true;
     }
 

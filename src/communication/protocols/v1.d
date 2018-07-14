@@ -46,7 +46,7 @@ enum _keyword(_: _ServerConfig) = "config";
 enum _keyword(_: _Confirmation) = "confirmation";
 enum _keyword(_: _Error)        = "error";
 
-public class Parser: v0.Parser {
+public class Codec: v0.Codec {
     enum version_ = 1;
 
     alias parse = typeof(super).parse;
@@ -85,7 +85,7 @@ public class Parser: v0.Parser {
 @system unittest {
     import communication.protocols.test;
 
-    mixin _setUp!Parser;
+    mixin _setUp!Codec;
     () @safe {
         import sumtype;
         import utils;
@@ -131,7 +131,7 @@ public class Parser: v0.Parser {
 @system unittest {
     import communication.protocols.test;
 
-    mixin _setUp!Parser;
+    mixin _setUp!Codec;
     () @safe {
         import std.algorithm.comparison;
         import sumtype;
@@ -139,7 +139,7 @@ public class Parser: v0.Parser {
 
         auto app = appender!(char[ ]);
 
-        parser.stringify(app, cmds.Command(cmds.Protocol(1))); // Forwarded to `v0`.
+        codec.stringify(app, cmds.Command(cmds.Protocol(1))); // Forwarded to `v0`.
         assert(app.data.among(
             q{{"cmd":"protocol","args":{"version":1}}},
             q{{"args":{"version":1},"cmd":"protocol"}},
@@ -147,7 +147,7 @@ public class Parser: v0.Parser {
 
         auto topics = [7, 3432].s;
         app.clear();
-        parser.stringify(app, cmds.Command(cmds.ServerConfig(topics[ ])));
+        codec.stringify(app, cmds.Command(cmds.ServerConfig(topics[ ])));
         assert(app.data.among(
             q{{"cmd":"config","args":{"extraSubs":[7,3432]}}},
             q{{"args":{"extraSubs":[7,3432]},"cmd":"config"}},

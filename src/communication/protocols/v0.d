@@ -18,10 +18,10 @@ enum _keyword(_: cmds.Protocol)   = "protocol";
 enum _keyword(_: cmds.Corrupted)  = "corrupted";
 enum _keyword(_: cmds.UnknownCmd) = "unknown";
 
-public class Parser: IProtocolParser {
+public class Codec: IProtocolCodec {
     enum version_ = 0;
 
-    alias parse = IProtocolParser.parse;
+    alias parse = IProtocolCodec.parse;
 
     override cmds.Command parse(string cmd, const Json args) const {
         if (cmd == "protocol")
@@ -48,7 +48,7 @@ public class Parser: IProtocolParser {
 @system unittest {
     import communication.protocols.test;
 
-    mixin _setUp!Parser;
+    mixin _setUp!Codec;
     () @safe {
         expect(q{{"cmd": "nop"}}, cmds.UnknownCmd("nop"));
         expectError(q{{"cmd": "protocol"}}, "invalidStructure");
