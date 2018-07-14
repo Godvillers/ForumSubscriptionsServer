@@ -51,7 +51,7 @@ public class Codec: v0.Codec {
 
     alias parse = typeof(super).parse;
 
-    override cmds.Command parse(string cmd, const Json args) const {
+    override cmds.IncomingCommand parse(string cmd, const Json args) const {
         switch (cmd) {
         case "config":
             return _deserialize!(cmds.ClientConfig, _ClientConfig)(args);
@@ -60,9 +60,9 @@ public class Codec: v0.Codec {
             return _deserialize!(cmds.Topics, _Topics)(args);
 
         case "confirm": {
-            auto boxed = new cmds.Command;
+            auto boxed = new cmds.IncomingCommand;
             *boxed = parse(args["wrapped"]); // Returns `Json.undefined` if not found.
-            return cmds.Command(cmds.Confirm(boxed));
+            return cmds.IncomingCommand(cmds.Confirm(boxed));
         }
 
         default:
@@ -70,7 +70,7 @@ public class Codec: v0.Codec {
         }
     }
 
-    override void stringify(ref Appender!(char[ ]) sink, const cmds.Command cmd) const {
+    override void stringify(ref Appender!(char[ ]) sink, const cmds.OutgoingCommand cmd) const {
         import sumtype;
 
         cmd.match!((x) {
@@ -139,7 +139,7 @@ public class Codec: v0.Codec {
 
         auto app = appender!(char[ ]);
 
-        codec.stringify(app, cmds.Command(cmds.Protocol(1))); // Forwarded to `v0`.
+        codec.stringify(app, cmds.OutgoingCommand(cmds.Protocol(1))); // Forwarded to `v0`.
         assert(app.data.among(
             q{{"cmd":"protocol","args":{"version":1}}},
             q{{"args":{"version":1},"cmd":"protocol"}},
@@ -147,7 +147,7 @@ public class Codec: v0.Codec {
 
         auto topics = [7, 3432].s;
         app.clear();
-        codec.stringify(app, cmds.Command(cmds.ServerConfig(topics[ ])));
+        codec.stringify(app, cmds.OutgoingCommand(cmds.ServerConfig(topics[ ])));
         assert(app.data.among(
             q{{"cmd":"config","args":{"extraSubs":[7,3432]}}},
             q{{"args":{"extraSubs":[7,3432]},"cmd":"config"}},

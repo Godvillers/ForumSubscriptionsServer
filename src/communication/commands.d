@@ -9,10 +9,9 @@ import communication.serializable;
 
 @safe:
 
-// TODO: Split into `IncomingCommand` and `OutgoingCommand`.
-alias Command = SumType!(
-    Protocol, Corrupted, UnknownCmd, ClientConfig, ServerConfig, Topics, Confirm, Confirmation,
-    Error,
+alias IncomingCommand = SumType!(Protocol, UnknownCmd, ClientConfig, Topics, Confirm, Error);
+alias OutgoingCommand = SumType!(
+    Protocol, Corrupted, UnknownCmd, ServerConfig, Topics, Confirmation, Error,
 );
 
 struct Protocol {
@@ -56,7 +55,7 @@ struct Topics {
 }
 
 struct Confirm {
-    Command* wrapped;
+    IncomingCommand* wrapped;
 }
 
 struct Confirmation {

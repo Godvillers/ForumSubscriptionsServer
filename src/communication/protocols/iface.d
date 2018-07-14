@@ -13,23 +13,23 @@ private struct _Command {
 
 interface IProtocolCodec {
 const /+pure+/ @safe:
-    cmds.Command parse(string cmd, const Json args)
+    cmds.IncomingCommand parse(string cmd, const Json args)
     in {
         assert(args.type == Json.Type.object);
     }
 
-    void stringify(ref Appender!(char[ ]), const cmds.Command);
+    void stringify(ref Appender!(char[ ]), const cmds.OutgoingCommand);
 
-    final cmds.Command parse(const Json obj) nothrow {
+    final cmds.IncomingCommand parse(const Json obj) nothrow {
         try {
             auto cmd = deserializeJson!_Command(obj);
             return parse(cmd.cmd, Json(cmd.args));
         } catch (Exception e)
-            return cmds.Command(cmds.Error("invalidStructure", null, e.msg));
+            return cmds.IncomingCommand(cmds.Error("invalidStructure", null, e.msg));
     }
 
     // Unfortunately, having to reimplement JSON stringification for arrays.
-    final void stringify(ref Appender!(char[ ]) sink, const(cmds.Command)[ ] data) {
+    final void stringify(ref Appender!(char[ ]) sink, const(cmds.OutgoingCommand)[ ] data) {
         sink ~= '[';
         foreach (cmd; data) {
             const oldLength = sink.data.length;

@@ -25,9 +25,9 @@ private Dest _copyFields(Dest, Src)(ref Src src) {
     return result;
 }
 
-cmds.Command _deserialize(T, Schema)(const Json json) {
+cmds.IncomingCommand _deserialize(T, Schema)(const Json json) {
     auto parsed = deserializeJson!Schema(json);
-    return cmds.Command(parsed._copyFields!T());
+    return cmds.IncomingCommand(parsed._copyFields!T());
 }
 
 struct _Tagged(T) {

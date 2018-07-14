@@ -20,7 +20,7 @@ struct ClientHandler {
     private {
         DomainHandler* _domainHandler;
         Rebindable!(immutable IProtocolCodec) _codec;
-        Appender!(cmds.Command[ ]) _outBuffer;
+        Appender!(cmds.OutgoingCommand[ ]) _outBuffer;
         Appender!(const(cmds.Topic)[ ][ ]) _queuedTopics;
         LocalManualEvent _event;
         int[ ] _subs;
@@ -30,7 +30,7 @@ struct ClientHandler {
     this(DomainHandler* domainHandler) {
         _domainHandler = domainHandler;
         _codec = rebindable(get!DefaultCodec);
-        _outBuffer = appender!(cmds.Command[ ]);
+        _outBuffer = appender!(cmds.OutgoingCommand[ ]);
         _queuedTopics = appender!(const(cmds.Topic)[ ][ ]);
         _event = createManualEvent();
     }
@@ -60,7 +60,7 @@ struct ClientHandler {
     }
 
     private void _emit(T)(T cmd) nothrow pure {
-        _outBuffer ~= cmds.Command(cmd);
+        _outBuffer ~= cmds.OutgoingCommand(cmd);
     }
 
     private size_t _getSelfAddr() const nothrow pure @trusted @nogc {
@@ -154,24 +154,18 @@ struct ClientHandler {
             (() @trusted => cast(ClientHandler*)addr)().wake(topics);
     }
 
-    void handle(T)(const T e) nothrow pure
-    if (is(T == cmds.Corrupted) || is(T == cmds.UnknownCmd) || is(T == cmds.Error)) {
+    void handle(T)(const T e) nothrow pure if (is(T == cmds.UnknownCmd) || is(T == cmds.Error)) {
         _emit(e);
     }
 
-    void handle(const cmds.Command cmd)
+    void handle(const cmds.IncomingCommand cmd)
     in {
         assert(_codec !is null);
     }
     do {
         import sumtype;
-        import utils;
 
-        return cmd.match!(
-            x => handle(x),
-            (const cmds.ServerConfig _) => unreachable,
-            (const cmds.Confirmation _) => unreachable,
-        );
+        return cmd.match!(x => handle(x));
     }
 
     void handle(const(Json)[ ] commands)
@@ -184,7 +178,7 @@ struct ClientHandler {
             handle(_codec.parse(json));
     }
 
-    bool serializeResponse(ref Appender!(char[ ]) sink, const(cmds.Command)[ ] response) {
+    bool serializeResponse(ref Appender!(char[ ]) sink, const(cmds.OutgoingCommand)[ ] response) {
         if (response.empty)
             return false;
         _codec.stringify(sink, response);

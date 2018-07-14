@@ -24,7 +24,7 @@ void _runReader(scope WebSocket socket, ref ClientHandler clientHandler) {
         try
             request = deserializeJson!(Json[ ])(text);
         catch (Exception) {
-            const response = [cmds.Command(cmds.Corrupted.init)].s;
+            const response = [cmds.OutgoingCommand(cmds.Corrupted.init)].s;
             clientHandler.serializeResponse(app, response[ ]);
             goto sendResponse;
         }
@@ -61,7 +61,7 @@ void _runWriter(scope WebSocket socket, ref ClientHandler clientHandler) {
 
         const cmds.Topics topics = { clientHandler.queuedTopics.join() };
         clientHandler.clearQueuedTopics(); // Clear immediately.
-        const response = [cmds.Command((() @trusted => cast()topics)())].s;
+        const response = [cmds.OutgoingCommand((() @trusted => cast()topics)())].s;
         clientHandler.serializeResponse(app, response[ ]);
         socket.send(app.data);
         app.clear();

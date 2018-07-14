@@ -31,7 +31,7 @@ void handlePost(scope HTTPServerRequest req, scope HTTPServerResponse res) @safe
     try
         request = deserializeJson!(Json[ ])(data);
     catch (Exception) {
-        const response = [cmds.Command(cmds.Corrupted.init)].s;
+        const response = [cmds.OutgoingCommand(cmds.Corrupted.init)].s;
         clientHandler.serializeResponse(app, response[ ]);
         goto sendResponse;
     }

@@ -23,13 +23,13 @@ public class Codec: IProtocolCodec {
 
     alias parse = IProtocolCodec.parse;
 
-    override cmds.Command parse(string cmd, const Json args) const {
+    override cmds.IncomingCommand parse(string cmd, const Json args) const {
         if (cmd == "protocol")
-            return cmds.Command(deserializeJson!(cmds.Protocol)(args));
-        return cmds.Command(cmds.UnknownCmd(cmd));
+            return cmds.IncomingCommand(deserializeJson!(cmds.Protocol)(args));
+        return cmds.IncomingCommand(cmds.UnknownCmd(cmd));
     }
 
-    override void stringify(ref Appender!(char[ ]) sink, const cmds.Command cmd) const {
+    override void stringify(ref Appender!(char[ ]) sink, const cmds.OutgoingCommand cmd) const {
         import std.traits;
 
         import sumtype;
