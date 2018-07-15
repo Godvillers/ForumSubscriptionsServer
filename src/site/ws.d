@@ -53,18 +53,25 @@ void _runWriter(scope WebSocket socket, ref ClientHandler clientHandler) {
     import std.algorithm.iteration;
 
     auto app = appender!(char[ ]);
-    app.reserve(1024);
+    auto topics = appender!(cmds.Topic[ ]);
+    app.reserve(256);
+    topics.reserve(4);
     while (true) {
         clientHandler.sleep();
         if (!socket.connected)
             break;
 
-        const cmds.Topics topics = { clientHandler.queuedTopics.join() };
+        topics ~=
+            clientHandler.queuedTopics
+            .joiner()
+            .filter!(topic => clientHandler.isSubscribedFor(topic.id));
         clientHandler.clearQueuedTopics(); // Clear immediately.
-        const response = [cmds.OutgoingCommand((() @trusted => cast()topics)())].s;
+
+        const response = [cmds.OutgoingCommand(cmds.Topics(topics.data))].s;
         clientHandler.serializeResponse(app, response[ ]);
         socket.send(app.data);
         app.clear();
+        topics.clear();
     }
 }
 

@@ -86,6 +86,15 @@ struct ClientHandler {
                 _domainHandler.topics.insert(id, Topic(0, SysTime.init, [_getSelfAddr(): true]));
     }
 
+    bool isSubscribedFor(int topicId) const nothrow pure @nogc
+    in {
+        assert(_domainHandler !is null);
+    }
+    do {
+        const topic = topicId in _domainHandler.topics;
+        return topic !is null && (_getSelfAddr() in topic.clients) !is null;
+    }
+
     void handle(const cmds.Protocol protocol) pure {
         auto oldCodec = _codec;
         // BUG: An entire bulk of responses is encoded with the most recently set codec.
@@ -126,22 +135,24 @@ struct ClientHandler {
         import core.time;
         import std.datetime.systime;
 
+        import vibe.core.log;
+
         bool[size_t] affectedClients;
         const threshold = Clock.currTime() + 3.minutes;
         foreach (topic; topics) {
             // Sanity check: ignore "updates" further than 3 minutes in the future.
             if (topic.timestamp >= threshold || topic.posts <= 0) {
-                // TODO: Do something with that.
+                logWarn("Got a suspicious topic: %s", topic);
                 continue;
             }
-            if (auto p = _domainHandler.topics.moveToFront(topic.id)) {
+            if (auto found = _domainHandler.topics.moveToFront(topic.id)) {
                 // Existing topic.
-                if (topic.timestamp <= p.lastUpdated && topic.posts <= p.posts)
+                if (topic.timestamp <= found.lastUpdated && topic.posts <= found.posts)
                     continue; // Nothing interesting.
 
-                p.posts = topic.posts;
-                p.lastUpdated = topic.timestamp;
-                foreach (addr; p.clients.byKey())
+                found.posts = topic.posts;
+                found.lastUpdated = topic.timestamp;
+                foreach (addr; found.clients.byKey())
                     if (addr != _getSelfAddr()) // Do not send notifications back to ourselves.
                         affectedClients[addr] = true;
             } else {
