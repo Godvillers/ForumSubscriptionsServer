@@ -108,15 +108,30 @@ struct ClientHandler {
         _emit(cmds.Protocol(protocol.version_));
     }
 
-    void handle(const cmds.ClientConfig config) nothrow pure {
+    void handle(const cmds.ClientConfig config) pure
+    in {
+        assert(_domainHandler !is null);
+    }
+    do {
         import std.algorithm;
+        import communication.serializable: SysTime;
 
         if (!config.subs.isNull) {
-            // TODO: Respond with these subscriptions.
             _unsubscribe();
             _subs = config.subs.get[0 .. min($, 512)].dup;
             _subs.length -= _subs.sort().uniq().copy(_subs).length;
             _subscribe();
+
+            // Tell the client about their subscriptions known at the moment.
+            auto topics = minimallyInitializedArray!(cmds.Topic[ ])(_subs.length);
+            size_t n;
+            foreach (id; _subs) {
+                const topic = _domainHandler.topics[id];
+                if (topic.posts > 0)
+                    topics[n++] = cmds.Topic(id, topic.posts, SysTime(topic.lastUpdated));
+            }
+            if (n)
+                _emit(cmds.Topics(topics[0 .. n]));
         }
         if (config.shareSubs != Ternary.unknown)
             _shareSubs = config.shareSubs == Ternary.yes;
@@ -133,13 +148,14 @@ struct ClientHandler {
 
     void handle(const cmds.Topics topics) {
         import core.time;
+        import std.algorithm.comparison;
         import std.datetime.systime;
 
         import vibe.core.log;
 
         bool[size_t] affectedClients;
         const threshold = Clock.currTime() + 3.minutes;
-        foreach (topic; topics) {
+        foreach (topic; topics[0 .. min($, 512)]) {
             // Sanity check: ignore "updates" further than 3 minutes in the future.
             if (topic.timestamp >= threshold || topic.posts <= 0) {
                 logWarn("Got a suspicious topic: %s", topic);
