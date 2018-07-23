@@ -25,8 +25,7 @@ const /+pure+/ @safe:
             auto cmd = deserializeJson!_Command(obj);
             return parse(cmd.cmd, Json(cmd.args));
         } catch (Exception e)
-            /+TODO: Use a separate command.+/
-            return cmds.IncomingCommand(cmds.Error("invalidStructure", null, e.msg));
+            return cmds.IncomingCommand(cmds.InvalidStructure(e.msg));
     }
 
     // Unfortunately, having to reimplement JSON stringification for arrays.

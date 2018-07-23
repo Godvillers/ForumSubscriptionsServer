@@ -3,35 +3,33 @@ module communication.commands;
 import std.typecons: Nullable;
 
 import sumtype;
-import vibe.data.json;
 
 import communication.serializable;
 
 @safe:
 
-alias IncomingCommand = SumType!(Protocol, UnknownCmd, ClientConfig, Topics, Confirm, Error);
+alias IncomingCommand = SumType!(
+    UnknownCmd, InvalidStructure,
+    Protocol, ClientConfig, Topics, Confirm,
+);
+
 alias OutgoingCommand = SumType!(
-    Protocol, Corrupted, UnknownCmd, ServerConfig, Topics, Confirmation, Error,
+    Corrupted, UnknownCmd, InvalidStructure,
+    Protocol, ServerConfig, Topics, Confirmation,
 );
 
 struct Protocol {
     int version_;
 }
 
-struct Corrupted {
-    Json toJson() const { return Json.emptyObject; }
-
-    static Corrupted fromJson(Json src) {
-        import std.json;
-
-        if (src == Json(null) || src == Json.emptyObject)
-            return Corrupted.init;
-        throw new JSONException("Cannot deserialize a `Corrupted` from JSON");
-    }
-}
+struct Corrupted { }
 
 struct UnknownCmd {
     string cmdName;
+}
+
+struct InvalidStructure {
+    string details;
 }
 
 struct ClientConfig {
@@ -60,8 +58,4 @@ struct Confirm {
 
 struct Confirmation {
     string status;
-}
-
-struct Error {
-    string kind, details, msg;
 }

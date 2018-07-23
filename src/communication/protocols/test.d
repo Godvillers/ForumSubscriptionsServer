@@ -16,6 +16,16 @@ package mixin template _setUp(Codec: IProtocolCodec) {
         return codec.parse(parseJsonString(json));
     }
 
+    void expect(T)(string json) @safe {
+        import sumtype;
+        import utils;
+
+        parse(json).match!(
+            (T _) => nothing,
+            found => unreachable(typeof(found).stringof),
+        );
+    }
+
     void expect(T)(string json, T expected) @safe {
         import sumtype;
         import utils;
@@ -23,18 +33,6 @@ package mixin template _setUp(Codec: IProtocolCodec) {
         parse(json).match!(
             (T found) => assert(found == expected, json),
             found     => unreachable(typeof(found).stringof),
-        );
-    }
-
-    void expectError(string json, string errorKind) @safe {
-        import sumtype;
-
-        import communication.commands;
-        import utils;
-
-        parse(json).match!(
-            (Error e) => assert(e.kind == errorKind, e.kind),
-            x         => unreachable(typeof(x).stringof),
         );
     }
 }

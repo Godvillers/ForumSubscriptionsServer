@@ -9,14 +9,24 @@ import cmds = communication.commands;
 
 private @safe:
 
-// `v0` shall not ever change, so we don't declare our own structures.
-alias _Outgoing(T: cmds.Protocol)   = T;
-alias _Outgoing(T: cmds.Corrupted)  = T;
-alias _Outgoing(T: cmds.UnknownCmd) = T;
+struct _Corrupted {
+    Json toJson() const { return Json.emptyObject; }
 
-enum _keyword(_: cmds.Protocol)   = "protocol";
-enum _keyword(_: cmds.Corrupted)  = "corrupted";
-enum _keyword(_: cmds.UnknownCmd) = "unknown";
+    static _Corrupted fromJson(Json src) nothrow pure @nogc {
+        assert(false, "Deserializing `Corrupted` is not implemented");
+    }
+}
+
+// `v0` shall not ever change, so we don't declare our own structures.
+alias _Outgoing(T: cmds.Protocol)         = T;
+alias _Outgoing(T: cmds.Corrupted)        = _Corrupted;
+alias _Outgoing(T: cmds.UnknownCmd)       = T;
+alias _Outgoing(T: cmds.InvalidStructure) = T;
+
+enum _keyword(_: cmds.Protocol)         = "protocol";
+enum _keyword(_: _Corrupted)            = "corrupted";
+enum _keyword(_: cmds.UnknownCmd)       = "unknown";
+enum _keyword(_: cmds.InvalidStructure) = "invalidStructure";
 
 public class Codec: IProtocolCodec {
     enum version_ = 0;
@@ -51,11 +61,11 @@ public class Codec: IProtocolCodec {
     mixin _setUp!Codec;
     () @safe {
         expect(q{{"cmd": "nop"}}, cmds.UnknownCmd("nop"));
-        expectError(q{{"cmd": "protocol"}}, "invalidStructure");
-        expectError(q{{"cmd": "protocol", "args": null}}, "invalidStructure");
-        expectError(q{{"cmd": "protocol", "args": { }}}, "invalidStructure");
-        expectError(q{{"cmd": "protocol", "args": {"version": null}}}, "invalidStructure");
-        expectError(q{{"cmd": "protocol", "args": {"version": "1"}}}, "invalidStructure");
+        expect!(cmds.InvalidStructure)(q{{"cmd": "protocol"}});
+        expect!(cmds.InvalidStructure)(q{{"cmd": "protocol", "args": null}});
+        expect!(cmds.InvalidStructure)(q{{"cmd": "protocol", "args": { }}});
+        expect!(cmds.InvalidStructure)(q{{"cmd": "protocol", "args": {"version": null}}});
+        expect!(cmds.InvalidStructure)(q{{"cmd": "protocol", "args": {"version": "1"}}});
         expect(q{{"cmd": "protocol", "args": {"version": 0}}}, cmds.Protocol(0));
         expect(q{{"cmd": "protocol", "args": {"version": 1}}}, cmds.Protocol(1));
         expect(q{{"cmd": "protocol", "args": {"version": -1}}}, cmds.Protocol(-1)); // Should pass.

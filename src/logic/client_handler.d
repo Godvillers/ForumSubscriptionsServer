@@ -198,7 +198,8 @@ struct ClientHandler {
         }();
     }
 
-    void handle(T)(const T e) nothrow pure if (is(T == cmds.UnknownCmd) || is(T == cmds.Error)) {
+    void handle(T)(const T e) nothrow pure
+    if (is(T == cmds.UnknownCmd) || is(T == cmds.InvalidStructure)) {
         _emit(e);
     }
 
