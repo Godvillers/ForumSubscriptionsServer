@@ -1,5 +1,7 @@
 module ordered_aa;
 
+import std.traits;
+
 private:
 
 // Circular linked list.
@@ -7,6 +9,10 @@ struct _Node(K, V) {
     K key;
     V value;
     _Node* prev, next;
+
+    invariant {
+        assert((prev is null) == (next is null));
+    }
 }
 
 void _evict(K, V)(ref _Node!(K, V) node) nothrow pure @safe @nogc
@@ -42,11 +48,14 @@ public struct OrderedAA(K, V) {
     private _Node!(K, V)[K] _aa;
     private _Node!(K, V)* _last;
 
-    this(this) {
-        _aa = _aa.dup;
-        if (_last !is null)
-            _last = _last.key in _aa;
-    }
+    static if (isCopyable!V)
+        this(this) {
+            _aa = _aa.dup;
+            if (_last !is null)
+                _last = _last.key in _aa;
+        }
+    else
+        @disable this(this);
 
     @property bool empty() const nothrow pure @safe @nogc {
         return _last is null;
@@ -64,7 +73,9 @@ public struct OrderedAA(K, V) {
     ref V insert(K key, V value) {
         import std.algorithm.mutation;
 
-        assert(key !in _aa);
+        assert(key !in _aa,
+            "Cannot insert a duplicate into an `OrderedAA!(" ~ K.stringof ~ ", " ~ V.stringof ~ ")`"
+        );
         auto newNode = _Node!(K, V)(key, move(value)); // Here to propagate `@system`ness.
         auto node = (() @trusted => &(_aa[key] = move(newNode)))();
         if (_last !is null)

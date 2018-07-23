@@ -47,5 +47,5 @@ shared static this() @system {
     __gshared InSituRegion!(totalSize, (void*).sizeof) region;
     foreach (i, C; _Codecs)
         _codecs[i] = region.make!C();
-    assert(!region.available);
+    assert(!region.available, "Too much memory reserved for codecs");
 }

@@ -69,21 +69,14 @@ struct ClientHandler {
         return cast(size_t)&this;
     }
 
-    private void _unsubscribe() nothrow pure {
-        foreach (id; _subs) {
-            const ok = _domainHandler.topics[id].clients.remove(_getSelfAddr());
-            assert(ok);
-        }
+    private void _subscribe() nothrow pure {
+        foreach (id; _subs)
+            _domainHandler.subscribe(id, _getSelfAddr(), _shareSubs);
     }
 
-    private void _subscribe() nothrow pure {
-        import std.datetime.systime;
-
+    private void _unsubscribe() nothrow pure {
         foreach (id; _subs)
-            if (auto topic = id in _domainHandler.topics)
-                topic.clients[_getSelfAddr()] = true;
-            else
-                _domainHandler.topics.insert(id, Topic(0, SysTime.init, [_getSelfAddr(): true]));
+            _domainHandler.unsubscribe(id, _getSelfAddr(), _shareSubs);
     }
 
     bool isSubscribedFor(int topicId) const nothrow pure @nogc
@@ -91,7 +84,7 @@ struct ClientHandler {
         assert(_domainHandler !is null);
     }
     do {
-        const topic = topicId in _domainHandler.topics;
+        const topic = _domainHandler.findTopic(topicId);
         return topic !is null && (_getSelfAddr() in topic.clients) !is null;
     }
 
@@ -118,6 +111,23 @@ struct ClientHandler {
 
         if (!config.subs.isNull) {
             _unsubscribe();
+            _subs = null;
+        }
+
+        if (config.shareSubs != Ternary.unknown) {
+            const newValue = config.shareSubs == Ternary.yes;
+            if (newValue != _shareSubs) {
+                if (newValue)
+                    foreach (id; _subs)
+                        _domainHandler.incPublicSubscribers(id);
+                else
+                    foreach (id; _subs)
+                        _domainHandler.decPublicSubscribers(id);
+                _shareSubs = newValue;
+            }
+        }
+
+        if (!config.subs.isNull) {
             _subs = config.subs.get[0 .. min($, 512)].dup;
             _subs.length -= _subs.sort().uniq().copy(_subs).length;
             _subscribe();
@@ -126,15 +136,16 @@ struct ClientHandler {
             auto topics = minimallyInitializedArray!(cmds.Topic[ ])(_subs.length);
             size_t n;
             foreach (id; _subs) {
-                const topic = _domainHandler.topics[id];
+                const topic = _domainHandler.findTopic(id);
+                assert(topic !is null, "Cannot find a topic we're subscribed to");
                 if (topic.posts > 0)
                     topics[n++] = cmds.Topic(id, topic.posts, SysTime(topic.lastUpdated));
             }
             if (n)
                 _emit(cmds.Topics(topics[0 .. n]));
+
+            // TODO: Send `ServerConfig` with `extraSubs`.
         }
-        if (config.shareSubs != Ternary.unknown)
-            _shareSubs = config.shareSubs == Ternary.yes;
     }
 
     void handle(const cmds.Confirm confirm)
@@ -161,24 +172,30 @@ struct ClientHandler {
                 logWarn("Got a suspicious topic: %s", topic);
                 continue;
             }
-            if (auto found = _domainHandler.topics.moveToFront(topic.id)) {
+            if (auto found = _domainHandler.findTopic(topic.id)) {
                 // Existing topic.
                 if (topic.timestamp <= found.lastUpdated && topic.posts <= found.posts)
                     continue; // Nothing interesting.
 
                 found.posts = topic.posts;
                 found.lastUpdated = topic.timestamp;
-                foreach (addr; found.clients.byKey())
-                    if (addr != _getSelfAddr()) // Do not send notifications back to ourselves.
-                        affectedClients[addr] = true;
+                // Remember clients subscribed to this topic.
+                () @trusted { // `.byKey()` was `@system` until 2.078.
+                    foreach (addr; found.clients.byKey())
+                        if (addr != _getSelfAddr()) // Do not send notifications back to ourselves.
+                            affectedClients[addr] = true;
+                }();
             } else {
                 // New topic.
-                _domainHandler.topics.insert(topic.id, Topic(topic.posts, topic.timestamp));
+                _domainHandler.createTopic(topic.id, topic.posts, topic.timestamp);
             }
         }
 
-        foreach (addr; affectedClients.byKey())
-            (() @trusted => cast(ClientHandler*)addr)().wake(topics);
+        // Notify clients subscribed to at least one of the updated topics.
+        () @trusted {
+            foreach (addr; affectedClients.byKey())
+                (cast(ClientHandler*)addr).wake(topics);
+        }();
     }
 
     void handle(T)(const T e) nothrow pure if (is(T == cmds.UnknownCmd) || is(T == cmds.Error)) {

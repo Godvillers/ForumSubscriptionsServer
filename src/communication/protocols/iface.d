@@ -25,17 +25,22 @@ const /+pure+/ @safe:
             auto cmd = deserializeJson!_Command(obj);
             return parse(cmd.cmd, Json(cmd.args));
         } catch (Exception e)
+            /+TODO: Use a separate command.+/
             return cmds.IncomingCommand(cmds.Error("invalidStructure", null, e.msg));
     }
 
     // Unfortunately, having to reimplement JSON stringification for arrays.
     final void stringify(ref Appender!(char[ ]) sink, const(cmds.OutgoingCommand)[ ] data) {
         sink ~= '[';
+        size_t oldLength = sink.data.length;
         foreach (cmd; data) {
-            const oldLength = sink.data.length;
             stringify(sink, cmd);
-            if (sink.data.length != oldLength)
+
+            const newLength = sink.data.length;
+            if (newLength != oldLength) {
                 sink ~= ',';
+                oldLength = newLength + 1;
+            }
         }
         if (sink.data[$ - 1] == ',')
             sink.data[$ - 1] = ']';
