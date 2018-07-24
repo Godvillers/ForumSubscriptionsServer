@@ -12,6 +12,8 @@ import cmds = communication.commands;
 
 @safe:
 
+private enum _gvSubsRequestLimit = 20;
+
 class CommunicationException: Exception {
     this() nothrow pure @nogc { super("Communication exception"); }
 }
@@ -98,16 +100,71 @@ struct ClientHandler {
             _emit(cmds.Protocol(LatestCodec.version_));
             throw new CommunicationException;
         }
-        _emit(cmds.Protocol(protocol.version_));
+        _emit(protocol);
     }
 
-    void handle(const cmds.ClientConfig config) pure
+    private cmds.Topic[ ] _collectSubsData() const nothrow pure
+    in {
+        assert(_domainHandler !is null);
+    }
+    out (result) {
+        assert(result.length <= _subs.length);
+    }
+    do {
+        import communication.serializable: SysTime;
+
+        auto topics = minimallyInitializedArray!(cmds.Topic[ ])(_subs.length);
+        size_t n;
+        foreach (id; _subs) {
+            const topic = _domainHandler.findTopic(id);
+            assert(topic !is null, "Cannot find a topic we're subscribed to");
+            if (topic.posts > 0)
+                topics[n++] = cmds.Topic(id, topic.posts, SysTime(topic.lastUpdated));
+        }
+        return topics[0 .. n];
+    }
+
+    private int[ ] _chooseExtraSubs() const
+    in {
+        assert(_domainHandler !is null);
+    }
+    out (result) {
+        assert(result.length <= _gvSubsRequestLimit);
+    }
+    do {
+        import std.algorithm;
+        import std.random: uniform;
+        import std.range;
+        import std.typecons: tuple;
+
+        int[_gvSubsRequestLimit] ids = void;
+        float[_gvSubsRequestLimit] weights = void;
+        auto pairs = zip(ids[ ], weights[ ]);
+
+        enum float noise = _gvSubsRequestLimit * .5f;
+        const tail =
+            _domainHandler.mostPopularTopics
+            .until!q{!a.subscribers}
+            .filter!(info => !isSubscribedFor(info.topicId))
+            .take(_gvSubsRequestLimit)
+            .enumerate()
+            .map!(t =>
+                // Slightly shuffle them.
+                tuple(int(t.value.topicId), cast(float)t.index + uniform!"[]"(-noise, +noise)))
+            .copy(pairs)
+            .length;
+
+        pairs[0 .. $ - tail].sort!q{a[1] < b[1]};
+        return ids[0 .. $ - tail].dup;
+    }
+
+    void handle(const cmds.ClientConfig config)
     in {
         assert(_domainHandler !is null);
     }
     do {
         import std.algorithm;
-        import communication.serializable: SysTime;
+        import std.range;
 
         if (!config.subs.isNull) {
             _unsubscribe();
@@ -133,18 +190,14 @@ struct ClientHandler {
             _subscribe();
 
             // Tell the client about their subscriptions known at the moment.
-            auto topics = minimallyInitializedArray!(cmds.Topic[ ])(_subs.length);
-            size_t n;
-            foreach (id; _subs) {
-                const topic = _domainHandler.findTopic(id);
-                assert(topic !is null, "Cannot find a topic we're subscribed to");
-                if (topic.posts > 0)
-                    topics[n++] = cmds.Topic(id, topic.posts, SysTime(topic.lastUpdated));
-            }
-            if (n)
-                _emit(cmds.Topics(topics[0 .. n]));
+            auto data = _collectSubsData();
+            if (!data.empty)
+                _emit(cmds.Topics(data));
 
-            // TODO: Send `ServerConfig` with `extraSubs`.
+            // Ask the client to watch for some extra topics.
+            auto extra = _chooseExtraSubs();
+            if (!extra.empty)
+                _emit(cmds.ServerConfig(extra));
         }
     }
 

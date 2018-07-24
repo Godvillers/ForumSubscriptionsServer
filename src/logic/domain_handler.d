@@ -47,6 +47,10 @@ nothrow pure:
         return id in _topics;
     }
 
+    @property auto mostPopularTopics() const @nogc {
+        return _tree[ ];
+    }
+
     private void _insertIntoTree(int topicId, uint subscribers) {
         // `RedBlackTree.check` really should throw `Error`s instead of `Exception`s...
         version (unittest) {
