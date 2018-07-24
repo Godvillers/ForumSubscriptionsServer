@@ -1,5 +1,6 @@
 module site.ws;
 
+import core.time;
 import std.array;
 
 import vibe.http.server;
@@ -10,6 +11,8 @@ import utils;
 import cmds = communication.commands;
 
 private @safe:
+
+enum _extraSubsRefreshInterval = 30.minutes;
 
 // Client -> Server [-> Client].
 void _runReader(scope WebSocket socket, ref ClientHandler clientHandler) {
@@ -54,13 +57,13 @@ void _runWriter(scope WebSocket socket, ref ClientHandler clientHandler) {
 
     auto app = appender!(char[ ]);
     auto topics = appender!(cmds.Topic[ ]);
-    app.reserve(256);
-    topics.reserve(4);
     while (true) {
         clientHandler.sleep();
         if (!socket.connected)
             break;
 
+        app.reserve(256);
+        topics.reserve(4);
         topics ~=
             clientHandler.queuedTopics
             .joiner()
@@ -72,6 +75,24 @@ void _runWriter(scope WebSocket socket, ref ClientHandler clientHandler) {
         socket.send(app.data);
         app.clear();
         topics.clear();
+    }
+}
+
+// Server -> Client.
+void _runRefresher(scope WebSocket socket, ref ClientHandler clientHandler) {
+    import vibe.core.core: sleep;
+
+    auto app = appender!(char[ ]);
+    while (true) {
+        sleep(_extraSubsRefreshInterval);
+        auto extraSubs = clientHandler.chooseExtraSubs();
+        if (!extraSubs.empty) {
+            const response = [cmds.OutgoingCommand(cmds.ServerConfig(extraSubs))].s;
+            app.reserve(192);
+            clientHandler.serializeResponse(app, response[ ]);
+            socket.send(app.data);
+            app.clear();
+        }
     }
 }
 
@@ -89,6 +110,16 @@ void _handleClient(string domain, scope WebSocket socket) {
 
     // This object must not be moved.
     auto clientHandler = ClientHandler(global.registerDomain(domain));
+
+    auto refresher = runTask({
+        try
+            _runRefresher(socket, clientHandler);
+        catch (InterruptException) { }
+        catch (Exception e)
+            _disconnect(socket,
+                "Unexpected exception during WebSocket handling (refresher): %s", e);
+    });
+    scope(exit) refresher.interrupt();
 
     auto writer = runTask({
         try

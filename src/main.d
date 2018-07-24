@@ -18,7 +18,7 @@ void _configure() {
     auto settings = new HTTPServerSettings;
     settings.bindAddresses = _addresses[ ];
     settings.port = _port;
-    settings.webSocketPingInterval = 3.minutes;
+    settings.webSocketPingInterval = 15.minutes;
 
     listenHTTP(settings,
         new URLRouter()

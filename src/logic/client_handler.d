@@ -124,7 +124,7 @@ struct ClientHandler {
         return topics[0 .. n];
     }
 
-    private int[ ] _chooseExtraSubs() const
+    int[ ] chooseExtraSubs() const
     in {
         assert(_domainHandler !is null);
     }
@@ -195,7 +195,7 @@ struct ClientHandler {
                 _emit(cmds.Topics(data));
 
             // Ask the client to watch for some extra topics.
-            auto extra = _chooseExtraSubs();
+            auto extra = chooseExtraSubs();
             if (!extra.empty)
                 _emit(cmds.ServerConfig(extra));
         }
