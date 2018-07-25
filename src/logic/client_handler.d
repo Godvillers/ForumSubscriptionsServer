@@ -29,19 +29,29 @@ struct ClientHandler {
         bool _shareSubs;
     }
 
-    this(DomainHandler* domainHandler) {
+    invariant {
+        assert(_domainHandler !is null);
+    }
+
+    @disable this();
+    @disable this(this);
+
+    this(DomainHandler* domainHandler)
+    in {
+        assert(domainHandler !is null);
+    }
+    do {
         _domainHandler = domainHandler;
         _codec = rebindable(get!DefaultCodec);
         _outBuffer = appender!(cmds.OutgoingCommand[ ]);
         _queuedTopics = appender!(const(cmds.Topic)[ ][ ]);
         _event = createManualEvent();
+        domainHandler.incRefCount();
     }
 
-    @disable this(this);
-
-    ~this() {
-        if (_domainHandler !is null)
-            _unsubscribe();
+    ~this() nothrow {
+        _unsubscribe();
+        _domainHandler.decRefCount();
     }
 
     void sleep() {
@@ -81,11 +91,7 @@ struct ClientHandler {
             _domainHandler.unsubscribe(id, _getSelfAddr(), _shareSubs);
     }
 
-    bool isSubscribedFor(int topicId) const nothrow pure @nogc
-    in {
-        assert(_domainHandler !is null);
-    }
-    do {
+    bool isSubscribedFor(int topicId) const nothrow pure @nogc {
         const topic = _domainHandler.findTopic(topicId);
         return topic !is null && (_getSelfAddr() in topic.clients) !is null;
     }
@@ -104,9 +110,6 @@ struct ClientHandler {
     }
 
     private cmds.Topic[ ] _collectSubsData() const nothrow pure
-    in {
-        assert(_domainHandler !is null);
-    }
     out (result) {
         assert(result.length <= _subs.length);
     }
@@ -125,9 +128,6 @@ struct ClientHandler {
     }
 
     int[ ] chooseExtraSubs() const
-    in {
-        assert(_domainHandler !is null);
-    }
     out (result) {
         assert(result.length <= _gvSubsRequestLimit);
     }
@@ -158,11 +158,7 @@ struct ClientHandler {
         return ids[0 .. $ - tail].dup;
     }
 
-    void handle(const cmds.ClientConfig config)
-    in {
-        assert(_domainHandler !is null);
-    }
-    do {
+    void handle(const cmds.ClientConfig config) {
         import std.algorithm;
         import std.range;
 

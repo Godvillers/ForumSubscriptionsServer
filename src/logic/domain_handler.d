@@ -34,9 +34,12 @@ struct _TreeNode {
 
 public struct DomainHandler {
 nothrow:
-    private uint _id;
-    private Topic[int] _aa;
-    private RedBlackTree!_TreeNode _tree;
+    private {
+        uint _id, _refCount;
+        string _name;
+        Topic[int] _aa;
+        RedBlackTree!_TreeNode _tree;
+    }
 
     invariant {
         assert(_aa.length >= _tree.length);
@@ -45,9 +48,31 @@ nothrow:
     @disable this();
     @disable this(this);
 
-    this(uint id) pure {
+    package this(uint id, string name) pure {
         _id = id;
+        _name = name;
         _tree = new typeof(_tree);
+    }
+
+    package @property bool _readyForDeletion() const pure @nogc {
+        return !_refCount && _aa.empty;
+    }
+
+    private void _destroyIfReady() {
+        import logic.global_handler; // I know circular dependencies are bad.
+
+        if (_readyForDeletion)
+            _destroyDomain(_name);
+    }
+
+    void incRefCount() pure @nogc {
+        _refCount++;
+    }
+
+    void decRefCount() {
+        assert(_refCount, "Attempting to decrease reference count below zero");
+        _refCount--;
+        _destroyIfReady();
     }
 
     inout(Topic)* findTopic(int topicId) inout pure @nogc {
@@ -87,7 +112,7 @@ nothrow:
         _aa[topicId] = Topic(0, posts, lastUpdated);
     }
 
-    private void _destroyTopic(int topicId) pure {
+    private void _destroyTopic(int topicId) {
         version (assert) {
             const topic = topicId in _aa;
             assert(topic !is null, "Attempting to destroy a non-existent topic");
@@ -96,7 +121,7 @@ nothrow:
             assert(_TreeNode(0, topicId) !in _tree);
         }
         _aa.remove(topicId);
-        // TODO: Destroy the domain itself if has no topics and no clients.
+        _destroyIfReady();
     }
 
     void incPublicSubscribers(int topicId) pure {
@@ -134,7 +159,6 @@ nothrow:
         assert(ok, "Attempting to unsubscribe from a topic the client wasn't subscribed to");
         if (topic.clients.empty)
             _markAsOrphan(_id, topicId, *topic, (() @trusted => &this)());
-        // TODO: Destroy the domain itself if has no topics and no clients.
     }
 }
 
