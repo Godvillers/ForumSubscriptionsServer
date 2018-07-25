@@ -71,12 +71,12 @@ struct ClientHandler {
         return cast(size_t)&this;
     }
 
-    private void _subscribe() nothrow pure {
+    private void _subscribe() nothrow {
         foreach (id; _subs)
             _domainHandler.subscribe(id, _getSelfAddr(), _shareSubs);
     }
 
-    private void _unsubscribe() nothrow pure {
+    private void _unsubscribe() nothrow {
         foreach (id; _subs)
             _domainHandler.unsubscribe(id, _getSelfAddr(), _shareSubs);
     }

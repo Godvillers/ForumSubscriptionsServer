@@ -18,6 +18,17 @@ T unreachable(T = void)(const(char)[ ] msg) nothrow pure @safe @nogc {
     assert(false, "unreachable!" ~ T.stringof);
 }
 
+/// A `nothrow` variant of `RedBlackTree.insert`.
+size_t rbTreeInsert(RedBlackTree, Stuff)(RedBlackTree tree, Stuff stuff) {
+    // `RedBlackTree.check` really should throw `Error`s instead of `Exception`s...
+    version (unittest) {
+        import std.exception;
+
+        return assumeWontThrow(tree.insert(stuff), "`RedBlackTree`'s invariant is violated");
+    } else
+        return tree.insert(stuff);
+}
+
 /// Allocate and initialize an object, throwing `OutOfMemoryError` on failure.
 auto make(T, Allocator, Args...)(auto ref Allocator alloc, auto ref Args args) {
     import core.exception;

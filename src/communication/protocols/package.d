@@ -1,6 +1,5 @@
 module communication.protocols;
 
-import std.experimental.allocator.building_blocks.region;
 import std.meta;
 import v0 = communication.protocols.v0;
 import v1 = communication.protocols.v1;
@@ -34,6 +33,7 @@ immutable(IProtocolCodec) get(int version_) pure {
 }
 
 shared static this() @system {
+    import std.experimental.allocator.building_blocks.region;
     import utils;
 
     enum totalSize = {
