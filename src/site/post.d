@@ -10,15 +10,17 @@ void handlePost(scope HTTPServerRequest req, scope HTTPServerResponse res) @safe
     import vibe.data.json;
 
     import logic.client_handler;
+    import site.validation;
     import utils;
     import cmds = communication.commands;
     import global = logic.global_handler;
 
     const domain = req.form.get("domain");
+    if (!isValidDomainName(domain))
+        throw new HTTPStatusException(HTTPStatus.badRequest, "Invalid `domain` POST parameter.");
     const data = req.form.get("data");
-    if (domain.empty || data.empty)
-        throw new HTTPStatusException(
-            HTTPStatus.badRequest, "Missing `domain` and/or `data` POST parameters.");
+    if (data.empty)
+        throw new HTTPStatusException(HTTPStatus.badRequest, "Missing `data` POST parameter.");
 
     res.headers["Access-Control-Allow-Origin"] = "*";
 

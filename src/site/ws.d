@@ -137,10 +137,11 @@ void _handleClient(string domain, scope WebSocket socket) {
 
 public void handleWS(scope HTTPServerRequest req, scope HTTPServerResponse res) {
     import std.range;
+    import site.validation;
 
     const domain = req.query.get("domain");
-    if (domain.empty)
-        throw new HTTPStatusException(HTTPStatus.badRequest, "Missing `domain` GET parameter.");
+    if (!isValidDomainName(domain))
+        throw new HTTPStatusException(HTTPStatus.badRequest, "Invalid `domain` GET parameter.");
 
     res.headers["Access-Control-Allow-Origin"] = "*";
     handleWebSocket((scope socket) nothrow @safe {
