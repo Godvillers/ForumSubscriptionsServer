@@ -1,4 +1,5 @@
 /.dub/
+/logs/
 /static/version.txt
 /dub.selections.json
 /gvsubsrv
