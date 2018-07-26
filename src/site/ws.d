@@ -103,7 +103,7 @@ void _disconnect(scope WebSocket socket, string fmt, Exception e) nothrow {
     catch (Exception) { }
 }
 
-void _handleClient(string domain, scope WebSocket socket) {
+void _handleClient(const(char)[ ] domain, scope WebSocket socket) {
     import vibe.core.core;
     import logic.domain_handler;
     import global = logic.global_handler;
@@ -139,7 +139,7 @@ public void handleWS(scope HTTPServerRequest req, scope HTTPServerResponse res) 
     import std.range;
     import site.validation;
 
-    const domain = req.query.get("domain");
+    const char[ ] domain = req.query.get("domain");
     if (!isValidDomainName(domain))
         throw new HTTPStatusException(HTTPStatus.badRequest, "Invalid `domain` GET parameter.");
 

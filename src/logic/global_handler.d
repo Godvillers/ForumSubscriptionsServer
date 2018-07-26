@@ -6,11 +6,12 @@ nothrow @safe:
 
 private DomainHandler[string] _domains;
 
-DomainHandler* registerDomain(string name) @trusted {
+DomainHandler* registerDomain(const(char)[ ] name) @trusted {
     static uint id;
     if (auto domainHandler = name in _domains)
         return domainHandler;
-    return &(_domains[name] = DomainHandler(id++, name));
+    const s = name.idup;
+    return &(_domains[s] = DomainHandler(id++, s));
 }
 
 package void _destroyDomain(string name) {
