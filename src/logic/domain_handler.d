@@ -43,6 +43,7 @@ nothrow:
 
     invariant {
         assert(_aa.length >= _tree.length);
+        assert(!_tree.length || _tree[ ].back.subscribers);
     }
 
     @disable this();

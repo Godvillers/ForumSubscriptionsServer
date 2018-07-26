@@ -144,7 +144,6 @@ struct ClientHandler {
         enum float noise = _gvSubsRequestLimit * .5f;
         const tail =
             _domainHandler.mostPopularTopics
-            .until!q{!a.subscribers}
             .filter!(info => !isSubscribedFor(info.topicId))
             .take(_gvSubsRequestLimit)
             .enumerate()
