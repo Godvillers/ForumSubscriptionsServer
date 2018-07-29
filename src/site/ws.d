@@ -19,7 +19,7 @@ void _runReader(scope WebSocket socket, ref ClientHandler clientHandler) {
     import vibe.data.json;
 
     auto app = appender!(char[ ]);
-    app.reserve(1024);
+    app.reserve(896);
     Json[ ] request;
     bool abort;
     while (socket.waitForData()) {
@@ -62,7 +62,7 @@ void _runWriter(scope WebSocket socket, ref ClientHandler clientHandler) {
         if (!socket.connected)
             break;
 
-        app.reserve(256);
+        app.reserve(192);
         topics.reserve(4);
         topics ~=
             clientHandler.queuedTopics

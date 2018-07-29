@@ -20,7 +20,7 @@ struct _ClientConfig {
 }
 
 struct _Topics {
-    cmds.Topic[ ] data;
+    @asArray cmds.Topic[ ] data;
 }
 
 struct _ServerConfig {
