@@ -17,3 +17,7 @@ configuration "application" {
 configuration "syntax" {
     buildOptions "syntaxOnly"
 }
+
+buildType "release-debug" {
+    buildOptions "debugInfo" "optimize" "inline"
+}
