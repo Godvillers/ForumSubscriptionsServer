@@ -19,5 +19,5 @@ configuration "syntax" {
 }
 
 buildType "release-debug" {
-    buildOptions "debugInfo" "optimize" "inline"
+    buildOptions "debugInfo" "optimize"
 }
